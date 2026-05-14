@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fs-entrypoint-config
+  namespace: dialerv2test
+  labels:
+    app: dialer-freeswitch
+data:
+  entrypoint.sh: |
+    #!/bin/bash
+    set -e
+
+    PATH=/usr/local/bin:$PATH
+    INTERFACE_LIST=("eth0" "eno1" "enp2s0" "enp3s0" "enp3s0f0np0" "enp3s0f0" "enp1s0f1np1" "ens3" "ens3f0np0")
+
+    # Override the default list if an environment variable is provided
+    if [ -n "$INTERFACE_LIST_OVERRIDE" ]; then
+      IFS=',' read -ra INTERFACE_LIST <<< "$INTERFACE_LIST_OVERRIDE"
+    fi
+
+    if [ -z "$PUBLIC_IP" ]; then
+      if ! command -v ip >/dev/null 2>&1; then
+        echo "Error: 'ip' command not found. Install iproute2 in the image."
+        exit 1
+      fi
+
+      # cilium_host may not exist on every runtime; ignore failures.
+      LOCAL_IP=$(ip addr show cilium_host 2>/dev/null | awk '/inet / {print $2}' | cut -f1 -d'/' || true)
+
+      # Loop through interfaces to find the first one with an IP address.
+      for iface in "${INTERFACE_LIST[@]}"; do
+        CANDIDATE_IP=$(ip addr show "$iface" 2>/dev/null | awk '/inet / {print $2}' | cut -f1 -d'/' || true)
+        if [ -n "$CANDIDATE_IP" ]; then
+          PUBLIC_IP="$CANDIDATE_IP"
+          break
+        fi
+      done
+
+      if [ -z "$PUBLIC_IP" ]; then
+        echo "Error: Could not determine PUBLIC_IP from the specified interfaces: ${INTERFACE_LIST[*]}"
+        exit 1
+      fi
+
+      PRIVATE_INTERFACE="${LOCAL_IP}"
+      PUBLIC_INTERFACE="${PUBLIC_IP}"
+    fi
+
+    # Keep vars.xml template handling resilient to historical typo variants.
+    if [ -f /usr/local/freeswitch/conf/vars.xml_orginal ]; then
+      cp /usr/local/freeswitch/conf/vars.xml_orginal /usr/local/freeswitch/conf/vars.xml
+    elif [ -f /usr/local/freeswitch/conf/vars.xml_original ]; then
+      cp /usr/local/freeswitch/conf/vars.xml_original /usr/local/freeswitch/conf/vars.xml
+    fi
+    /bin/sed -i "s|replace_with_actual_ip|${PUBLIC_IP}|g" /usr/local/freeswitch/conf/vars.xml
+
+    # WebRTC agents commonly provide private/LAN ICE candidates.
+    # Without apply-candidate-acl, Sofia defaults to wan.auto and may reject them,
+    # causing immediate BYE with INCOMPATIBLE_DESTINATION after 200 OK.
+    INTERNAL_PROFILE="/usr/local/freeswitch/conf/sip_profiles/internal.xml"
+    if [ -f "${INTERNAL_PROFILE}" ] && ! grep -q 'apply-candidate-acl' "${INTERNAL_PROFILE}"; then
+      /bin/sed -i '/<param name="local-network-acl" value="localnet.auto"\/>/a\    <param name="apply-candidate-acl" value="localnet.auto"/>' "${INTERNAL_PROFILE}"
+    fi
+
+    # Execute the original entrypoint command
+    /usr/local/freeswitch/bin/freeswitch -nonat
+
+    
+   

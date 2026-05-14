@@ -1,0 +1,9 @@
+<configuration name="xml_curl.conf" description="cURL XML Gateway">
+  <bindings>
+    <binding name="directory">
+      <param name="gateway-url" value="http://dialerv2-dialer-aio:3000/freeswitch/directory"/>
+      <param name="auth-scheme" value="basic"/>
+      <param name="gateway-credentials" value="fsxml:FSDirectorySharedSecret2026"/>
+    </binding>
+  </bindings>
+</configuration>

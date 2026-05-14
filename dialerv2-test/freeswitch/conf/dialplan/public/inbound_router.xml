@@ -1,0 +1,15 @@
+<!-- /home/tpl/compare/dialerv2/freeswitch/conf/dialplan/public/inbound_router.xml -->
+<include>
+  <extension name="inbound_router">
+    <!-- Match one DID -->
+    <condition field="destination_number" expression="^1234567890$">
+      <action application="set" data="call_type=inbound"/>
+      <action application="set" data="call_role=inbound_customer"/>
+      <action application="set" data="route_group=inbound"/>
+      <action application="set" data="inbound_did=${destination_number}"/>
+      <action application="set" data="inbound_from=${caller_id_number}"/>
+      <!-- optional: <action application="answer"/> -->
+      <action application="park"/>
+    </condition>
+  </extension>
+</include>

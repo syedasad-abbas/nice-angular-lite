@@ -1,0 +1,447 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dialer-freeswitch
+  namespace: dialerv2test
+  labels:
+    app: dialer-freeswitch
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: dialer-freeswitch
+  template:
+    metadata:
+      labels:
+        app: dialer-freeswitch
+    spec:
+      imagePullSecrets:
+        - name: dockerhub-secret
+      hostNetwork: true
+
+      containers:
+        - name: redis
+          image: redis:7
+          ports:
+            - containerPort: 6379
+          args: ["--appendonly", "yes"]
+
+        - name: rabbitmq
+          image: rabbitmq:3-management
+          ports:
+            - containerPort: 5672
+            - containerPort: 15672
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: "guest"
+            - name: RABBITMQ_DEFAULT_PASS
+              value: "guest"
+
+        - name: dialer-aio
+          image: syedasadabbas/dialerv2-app:0.9
+          imagePullPolicy: IfNotPresent
+          command: ["node", "/app/index.js"]
+          ports:
+            - name: health
+              containerPort: 3000
+              protocol: TCP
+            - name: detector-ws
+              containerPort: 8090
+              protocol: TCP
+          env:
+            - name: LOG_LEVEL
+              value: "info"
+            - name: HEALTH_PORT
+              value: "3000"
+            - name: MAX_CALL_DURATION_MS
+              value: "180000"
+
+            - name: FREESWITCH_HOST
+              value: "127.0.0.1"
+            - name: FREESWITCH_PORT
+              value: "8021"
+            - name: FREESWITCH_PASSWORD
+              value: "FS!Secure2026"
+            - name: SIP_GATEWAY
+              value: ""
+            - name: SIP_PROFILE
+              value: "external"
+            - name: CODEC_STRING
+              value: "OPUS,PCMU,PCMA"
+            - name: ORIGINATE_TIMEOUT_SEC
+              value: "60"
+            - name: ESL_RECONNECT_MS
+              value: "5000"
+            - name: SIP_TRUNK_IPS
+              value: "169.197.85.202,169.197.85.203,169.197.85.204"
+            - name: FS_DIRECTORY_API_PATH
+              value: "/freeswitch/directory"
+            - name: FS_DIRECTORY_AUTH_USER
+              value: "fsxml"
+            - name: FS_DIRECTORY_AUTH_TOKEN
+              value: "FSDirectorySharedSecret2026"
+            - name: FS_DIRECTORY_USER_CONTEXT
+              value: "default"
+            - name: SIP_DOMAIN
+              value: "voice-app-test.dialytica.com"
+
+            - name: RABBITMQ_URI
+              value: "amqp://guest:guest@127.0.0.1:5672"
+            - name: RABBITMQ_CALLS_QUEUE
+              value: "calls_queue"
+            - name: RABBITMQ_PREFETCH
+              value: "60"
+            - name: RABBITMQ_QUEUE_TYPE
+              value: "quorum"
+            - name: RABBITMQ_RECONNECT_MS
+              value: "5000"
+
+            - name: REDIS_URI
+              value: "redis://default:@127.0.0.1:6379"
+            - name: ANSWERED_CALL_KEY_TTL
+              value: "7200"
+            - name: INFLIGHT_KEY_TTL
+              value: "120"
+
+            - name: CALL_STATUS_API_BASE_URL
+              value: "https://dtmf.dialytica.com/api"
+            - name: CALL_STATUS_API_TIMEOUT
+              value: "5000"
+
+            - name: CALLS_PER_SECOND
+              value: "30"
+            - name: DTMF_GATHER_TIMEOUT
+              value: "15"
+            - name: DEFAULT_NUMBER_PREFIX
+              value: ""
+            - name: AUDIO_CACHE_PREFIX
+              value: "http_cache://"
+            - name: VM_PLAYBACK_START_DELAY_MS
+              value: "180"
+            - name: VM_REMOTE_SILENCE_REQUIRED_MS
+              value: "900"
+            - name: VM_REMOTE_SILENCE_MAX_WAIT_MS
+              value: "6000"
+            # === Agent Retry & Cooldown Settings (New) ===
+            - name: AGENT_RING_TIMEOUT_SEC
+              value: "18"
+            - name: AGENT_MAX_ATTEMPTS_PER_CALL
+              value: "4"
+            - name: AGENT_COOLDOWN_SEC
+              value: "5"
+            - name: PORTAL_WS_PORT
+              value: "18081"
+            - name: INBOUND_MAX_WAIT_SEC
+              value: "45"
+            - name: INBOUND_RETRY_GAP_MS
+              value: "1200"
+            - name: INBOUND_HOLD_PROMPT
+              value: "ivr/queue-hold.wav"     # change to your actual audio file URL if needed
+            - name: BEEP_NODE_DETECTOR_ENABLED
+              value: "true"
+            - name: BEEP_NODE_WS_HOST
+              value: "0.0.0.0"
+            - name: BEEP_NODE_WS_PORT
+              value: "8090"
+            - name: BEEP_NODE_SAMPLE_RATE
+              value: "8000"
+            - name: BEEP_NODE_SILENCE_RMS
+              value: "220"
+            - name: BEEP_NODE_SILENCE_MIN_MS
+              value: "220"
+            # BEEP_NODE_BEEP_BAND_LOW/HIGH_HZ are deprecated — the detector
+            # now auto-scans all common beep frequencies (440–1400 Hz).
+            - name: BEEP_NODE_BEEP_BAND_LOW_HZ
+              value: "850"
+            - name: BEEP_NODE_BEEP_BAND_HIGH_HZ
+              value: "1250"
+            - name: BEEP_NODE_BEEP_BAND_RATIO
+              value: "0.55"
+            - name: BEEP_NODE_BEEP_MIN_MS
+              value: "120"
+            - name: BEEP_NODE_PURITY_RATIO
+              value: "2.2"
+            - name: BEEP_NODE_DETECT_START_MS
+              value: "1800"
+            - name: BEEP_NODE_GREETING_MIN_MS
+              value: "600"
+            - name: BEEP_NODE_BURST_PEAK_RATIO_MIN
+              value: "0.24"
+            - name: BEEP_NODE_BURST_FLATNESS_MAX
+              value: "0.45"
+            - name: BEEP_NODE_BURST_ENERGY_FLOOR_MULT
+              value: "2.5"
+            - name: BEEP_NODE_BURST_MAX_MS
+              value: "320"
+            - name: BEEP_NODE_POST_BURST_VERIFY_MS
+              value: "220"
+            - name: BEEP_NODE_POST_BURST_MIN_RMS_DROP_RATIO
+              value: "0.4"
+            - name: BEEP_NODE_POST_BURST_LOW_ACTIVITY_RATIO
+              value: "0.6"
+            - name: BEEP_NODE_POST_BURST_LOW_ENERGY_MULT
+              value: "1.2"
+            - name: BEEP_NODE_NO_SILENCE_BAND_RATIO
+              value: "0.9"
+            - name: BEEP_NODE_NO_SILENCE_PURITY_RATIO
+              value: "8"
+            - name: BEEP_NODE_NO_SILENCE_MIN_MS
+              value: "280"
+            - name: BEEP_NODE_POST_BEEP_SILENCE_MS
+              value: "150"
+            - name: BEEP_NODE_RECENT_SILENCE_MAX_MS
+              value: "800"
+            - name: BEEP_NODE_TONE_GAP_TOLERANCE_MS
+              value: "60"
+            - name: BEEP_NODE_POST_SILENCE_NOISE_TOLERANCE_MS
+              value: "80"
+            - name: BEEP_NODE_ADAPTIVE_SILENCE_ENABLED
+              value: "false"
+            - name: BEEP_NODE_ADAPTIVE_SILENCE_MULTIPLIER
+              value: "2.2"
+            - name: BEEP_NODE_ADAPTIVE_SILENCE_MAX_RMS
+              value: "360"
+            - name: BEEP_NODE_NOISE_FLOOR_ALPHA
+              value: "0.06"
+            - name: BEEP_NODE_TONE_STABLE_MIN_FRAMES
+              value: "3"
+            - name: BEEP_NODE_TONE_STABLE_MAX_SPAN_HZ
+              value: "220"
+            - name: BEEP_NODE_TONE_STABLE_MIN_DOMINANT_RATIO
+              value: "0.45"
+            - name: BEEP_NODE_NOISY_CONFIRM_MIN_TONE_MS
+              value: "260"
+            - name: BEEP_NODE_NOISY_CONFIRM_MIN_DOMINANT_RATIO
+              value: "0.52"
+            - name: BEEP_NODE_NOISY_CONFIRM_MIN_AVG_PURITY
+              value: "8"
+            - name: BEEP_NODE_NOISY_CONFIRM_REQUIRE_POST_SILENCE
+              value: "true"
+            - name: BEEP_NODE_NOISY_CONFIRM_MIN_POST_SILENCE_MS
+              value: "120"
+            - name: BEEP_NODE_REQUIRE_PRE_SPEECH
+              value: "true"
+            - name: BEEP_NODE_PRE_SPEECH_MIN_MS
+              value: "450"
+            - name: BEEP_NODE_PRE_SPEECH_BYPASS_MS
+              value: "5200"
+            - name: BEEP_NODE_RECENT_SILENCE_BYPASS_MS
+              value: "5600"
+            - name: BEEP_NODE_TRACE
+              value: "false"
+            - name: BEEP_NODE_MIX_TYPE
+              value: "stereo"
+            - name: BEEP_NODE_CUSTOMER_CHANNEL
+              value: "left"
+
+            - name: BEEP_AVMD_ENABLED
+              value: "false"
+            - name: BEEP_VMD_ENABLED
+              value: "false"
+            - name: BEEP_REQUIRE_DUAL_SIGNAL
+              value: "false"
+            - name: BEEP_MIN_MS_FROM_ANSWER
+              value: "3000"
+            - name: BEEP_QUORUM_WINDOW_MS
+              value: "2500"
+            - name: BEEP_SINGLE_SIGNAL_GRACE_MS
+              value: "12000"
+            - name: BEEP_CONFIRM_DELAY_MS
+              value: "350"
+
+            - name: LISTEN_ENABLED
+              value: "true"
+            - name: LISTEN_PROBABILITY
+              value: "0.2"
+            - name: LISTEN_IPS
+              value: "178.156.181.17,178.156.146.63,178.156.181.152,178.156.196.227,178.156.197.141"
+            - name: LISTEN_WEBSOCKET_PORT
+              value: "8080"
+            - name: LISTEN_MIX_TYPE
+              value: "stereo"
+            - name: LISTEN_SAMPLE_RATE
+              value: "8000"
+            - name: LISTEN_MAX_LENGTH
+              value: "20"
+
+            - name: TEST_CALL_API_ENABLED
+              value: "true"
+            - name: TEST_CALL_API_PATH
+              value: "/v1/test-call"
+            - name: TEST_CALL_API_KEY
+              value: "605f3232114bd4a50092"
+
+        - name: frontend
+          image: syedasadabbas/dialerv2-frontend:13.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          command: ["/bin/sh", "/opt/frontend-entrypoint.sh"]
+          ports:
+            - name: frontend-http
+              containerPort: 8088
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8088
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8088
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: frontend-entrypoint
+              mountPath: /opt/frontend-entrypoint.sh
+              subPath: entrypoint.sh
+              readOnly: true
+
+        - name: auth-api
+          image: syedasadabbas/dialerv2-auth-api:0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: auth-http
+              containerPort: 3100
+              protocol: TCP
+          env:
+            - name: AUTH_API_PORT
+              value: "3100"
+            - name: REDIS_URI
+              value: "redis://127.0.0.1:6379"
+            - name: JWT_SECRET
+              value: "DialerV2AuthSecret2026_ChangeMe"
+            - name: JWT_EXPIRES_IN
+              value: "12h"
+            - name: SIP_DOMAIN
+              value: "voice-app-test.dialytica.com"
+            - name: SIP_WS_URL
+              value: "ws://127.0.0.1:8088/sip-ws"
+            - name: SEED_ADMIN_ON_START
+              value: "true"
+            - name: SEED_ADMIN_USERNAME
+              value: "admin"
+            - name: SEED_ADMIN_PASSWORD
+              value: "Pass@123"
+            - name: SEED_ADMIN_NAME
+              value: "Portal Admin"
+            - name: SEED_ADMIN_EXTENSION
+              value: "1001"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3100
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3100
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          
+
+        - name: freeswitch
+          image: syedasadabbas/dialerv2-fs:0.3
+          imagePullPolicy: IfNotPresent
+          command: ["/opt/entrypoint.sh"]
+          readinessProbe:
+            tcpSocket:
+              port: 8021
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          ports:
+            - name: esl
+              containerPort: 8021
+              protocol: TCP
+            - name: sip-udp
+              containerPort: 5060
+              protocol: UDP
+            - name: sip-tcp
+              containerPort: 5060
+              protocol: TCP
+            - name: sip-ws
+              containerPort: 5066
+              protocol: TCP
+            - name: sip-wss
+              containerPort: 7443
+              protocol: TCP
+          env:
+            - name: ESL_PASSWORD
+              value: "FS!Secure2026"
+            - name: MOD_AUDIO_FORK_SUBPROTOCOL_NAME
+              value: "audio.drachtio.org"
+            - name: MOD_AUDIO_FORK_SERVICE_THREADS
+              value: "1"
+            - name: MOD_AUDIO_FORK_BUFFER_SECS
+              value: "2"
+          volumeMounts:
+            - name: fs-config
+              mountPath: /usr/local/freeswitch/conf/autoload_configs/switch.conf.xml
+              subPath: switch.conf.xml
+              readOnly: true
+            - name: fs-config
+              mountPath: /usr/local/freeswitch/conf/autoload_configs/event_socket.conf.xml
+              subPath: event_socket.conf.xml
+              readOnly: true
+            - name: fs-config
+              mountPath: /usr/local/freeswitch/conf/autoload_configs/avmd.conf.xml
+              subPath: avmd.conf.xml
+              readOnly: true
+            - name: fs-config
+              mountPath: /usr/local/freeswitch/conf/autoload_configs/acl.conf.xml
+              subPath: acl.conf.xml
+              readOnly: true
+            - name: fs-config
+              mountPath: /usr/local/freeswitch/conf/autoload_configs/xml_curl.conf.xml
+              subPath: xml_curl.conf.xml
+              readOnly: true
+            - name: fs-config
+              mountPath: /usr/local/freeswitch/conf/dialplan/public/inbound_router.xml
+              subPath: inbound_router.xml
+              readOnly: true
+            - name: fs-config
+              mountPath: /usr/local/freeswitch/conf/vars.xml_orginal
+              subPath: vars.xml
+              readOnly: true
+            - name: fs-2ndary-config
+              mountPath: /usr/local/freeswitch/conf/sip_profiles/external/531ebad1-e810-44f7-903c-be44f33e2f27.xml
+              subPath: 531ebad1-e810-44f7-903c-be44f33e2f27.xml
+              readOnly: true
+            - name: fs-2ndary-config
+              mountPath: /usr/local/freeswitch/conf/sip_profiles/internal/531ebad1-e810-44f7-903c-be44f33e2f27.xml
+              subPath: 531ebad1-e810-44f7-903c-be44f33e2f27.xml
+              readOnly: true
+            - name: tls-certs
+              mountPath: /etc/freeswitch/tls/
+              readOnly: true
+            - name: entrypoint-script
+              mountPath: /opt/entrypoint.sh
+              subPath: entrypoint.sh
+              readOnly: true
+
+      volumes:
+        - name: fs-config
+          configMap:
+            name: fs-config
+        - name: fs-2ndary-config
+          configMap:
+            name: fs-secondary-config
+        - name: entrypoint-script
+          configMap:
+            name: fs-entrypoint-config
+            defaultMode: 0755
+        - name: frontend-entrypoint
+          configMap:
+            name: frontend-entrypoint-config
+            defaultMode: 0755
+        - name: tls-certs
+          secret:
+            secretName: fs-tls-certs

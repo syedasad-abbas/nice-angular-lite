@@ -1,0 +1,51 @@
+# Dialer V2 Project Work-Flow (Block Diagram)
+
+## System Block Diagram
+
+```mermaid
+flowchart LR
+    subgraph AgentSide["Agent Side"]
+        UI["Portal UI (Browser + JsSIP)"]
+    end
+
+    subgraph ControlPlane["Control Plane"]
+        AUTH["auth-api"]
+        AIO["dialer-aio (ESL + Routing Engine)"]
+        REDIS["Redis (presence, pools, locks, callroute)"]
+        RMQ["RabbitMQ (outbound jobs)"]
+    end
+
+    subgraph MediaPlane["Media / SIP Plane"]
+        FS["FreeSWITCH"]
+        CARRIER["Carrier / DID / SIP Trunk"]
+    end
+
+    UI -->|"Login"| AUTH
+    AUTH -->|"SIP config + token"| UI
+    UI <-->|"SIP WS/WSS register + call signaling"| FS
+
+    FS -->|"ESL events: CHANNEL_*"| AIO
+    AIO -->|"ESL commands: bridge/uuid_*"| FS
+
+    AIO <-->|"agent state + pools + locks"| REDIS
+    RMQ -->|"outbound call payload"| AIO
+    CARRIER <-->|"inbound/outbound SIP calls"| FS
+```
+
+## Call Routing Block Diagram
+
+```mermaid
+flowchart LR
+    IN["Inbound DID / Loopback / Outbound Job"] --> FS1["FreeSWITCH Dialplan"]
+    FS1 --> TAG["Set call_type, call_role, route_group"]
+    TAG --> PARK["Park Customer Leg"]
+    PARK --> EVT["dialer-aio receives CHANNEL_PARK"]
+    EVT --> PICK["Pick + lock agent from Redis pool"]
+    PICK --> BRIDGE["Bridge to sofia/internal/${extension}%${sipDomain}"]
+    BRIDGE --> ANSWER{"Agent answers?"}
+    ANSWER -->|No| RETRY["Cooldown + retry next attempt"]
+    RETRY --> PICK
+    ANSWER -->|Yes| LIVE["Active bridged call"]
+    LIVE --> END["Hangup / Normal clearing"]
+    END --> CLEAN["Release locks, update route/disposition"]
+```

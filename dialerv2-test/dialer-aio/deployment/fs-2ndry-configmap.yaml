@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fs-secondary-config
+  namespace: dialerv2test
+  labels:
+    app: dialer-freeswitch
+data:
+  531ebad1-e810-44f7-903c-be44f33e2f27.xml: |
+    <include>
+      <gateway name="531ebad1-e810-44f7-903c-be44f33e2f27">
+        <param name="from-domain" value="sipconvo.voslogic.com"/>
+        <param name="proxy" value="sipconvo.voslogic.com:5060"/>
+        <param name="register" value="false"/>
+      </gateway>
+    </include>
+
+    
+   

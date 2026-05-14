@@ -1,0 +1,140 @@
+#Step 1 approved (2026-04-21): Use docs/adr-001-dialer-boundaries.md as source of truth.
+#creating and installing cluster 
+# 1) install kind (Linux)
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.30.0/kind-linux-amd64
+chmod +x ./kind
+sudo mv ./kind /usr/local/bin/kind
+
+# 2) start Docker daemon if not running
+sudo systemctl start docker
+docker ps
+
+# 3) create cluster
+kind create cluster --name dialerv2test
+
+# 4) verify kubectl now works
+kubectl cluster-info
+kubectl get nodes
+kubectl config current-context
+
+#orginating a call from freeswitch at defined did 
+
+NS=dialerv2test
+POD=$(kubectl get pod -n $NS -l app=dialer-freeswitch -o jsonpath='{.items[0].metadata.name}')
+
+# watch dialer logs in one terminal
+kubectl logs -n $NS $POD -c dialer-aio -f | egrep "Inbound call parked|Selected and locked agent|queue timeout|did NOT answer"
+
+# simulate inbound DID call (no real phone call)
+kubectl exec -n $NS $POD -c freeswitch -- fs_cli -x "reloadxml"
+kubectl exec -n $NS $POD -c freeswitch -- fs_cli -H 127.0.0.1 -P 8021 -p 'FS!Secure2026' -x "bgapi originate {origination_caller_id_number=923001112233,loopback_export=call_role,call_type,route_group,inbound_did,inbound_from,call_role=inbound_customer,call_type=inbound,route_group=inbound,inbound_did=1234567890,inbound_from=923001112233}loopback/1234567890/public &park()"
+
+
+#fake ws client to test redis functionality 
+
+# send fake "portal login/presence" and keep socket open 120s
+kubectl exec -n $NS $POD -c dialer-aio -- node -e '
+const WebSocket=require("ws");
+const ws=new WebSocket("ws://127.0.0.1:18081");
+ws.on("open",()=>{ws.send(JSON.stringify({
+  type:"agent_presence",
+  agentId:"agent-1001",
+  extension:"1001",
+  sipRegistered:true,
+  availableInbound:true,
+  availableOutbound:true
+}));
+console.log("presence sent");
+setTimeout(()=>ws.close(),120000);
+});
+setInterval(()=>{},1000);
+'
+#verify from the redis 
+# verify Redis write
+kubectl exec -n $NS $POD -c redis -- redis-cli HGETALL agent:agent-1001
+kubectl exec -n $NS $POD -c redis -- redis-cli GET agent:ext:1001
+kubectl exec -n $NS $POD -c redis -- redis-cli ZRANGE pool:inbound 0 -1 WITHSCORES
+kubectl exec -n $NS $POD -c redis -- redis-cli ZRANGE pool:outbound 0 -1 WITHSCORES
+
+#port forwarding 
+NS=dialerv2test
+POD=$(kubectl get pod -n $NS -l app=dialer-freeswitch -o jsonpath='{.items[0].metadata.name}')
+kubectl port-forward -n $NS pod/$POD 15672:15672
+
+or 
+
+kubectl port-forward -n $NS pod/$POD 5672:5672 15672:15672
+
+#creating the fs-tl 
+NS=dialerv2test
+
+mkdir -p /tmp/fs-tls
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+  -keyout /tmp/fs-tls/tls.key \
+  -out /tmp/fs-tls/tls.crt \
+  -subj "/CN=localhost"
+
+cat /tmp/fs-tls/tls.key /tmp/fs-tls/tls.crt > /tmp/fs-tls/wss.pem
+
+kubectl -n $NS create secret generic fs-tls-certs \
+  --from-file=wss.pem=/tmp/fs-tls/wss.pem \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl rollout restart deployment/dialer-freeswitch -n $NS
+kubectl get pods -n $NS -w
+
+#loginto fs_cli
+/usr/local/freeswitch/bin/fs_cli -H 127.0.0.1 -P 8021 -p 'FS!Secure2026'
+kubectl exec -n dialerv2test "$POD" -c freeswitch -- /usr/local/freeswitch/bin/fs_cli -H 127.0.0.1 -P 8021 -p 'FS!Secure2026' -x "bgapi originate {origination_caller_id_number=923001112233,loopback_export=call_role,call_type,route_group,inbound_did,inbound_from,call_role=inbound_customer,call_type=inbound,route_group=inbound,inbound_did=1234567890,inbound_from=923001112233}loopback/1234567890/public &park()"
+POD=$(kubectl get pod -n dialerv2test -l app=dialer-freeswitch -o jsonpath='{.items[0].metadata.name}')
+
+#update the services.php for api 
+
+#testing backend working 
+
+NS=dialerv2test
+NEW_POD=$(kubectl get pod -n "$NS" -l app=dialer-freeswitch --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+
+kubectl -n "$NS" port-forward pod/"$NEW_POD" 3100:3100
+curl -i http://127.0.0.1:3100/healthz
+
+# functional portforwording 
+NS=dialerv2test
+POD=$(kubectl get pod -n $NS -l app=dialer-freeswitch -o jsonpath='{.items[0].metadata.name}')
+kubectl -n $NS port-forward pod/$POD 8088:8088 3100:3100
+
+# open portal in browser
+# URL: http://127.0.0.1:8088/login
+# username: admin
+# password: Pass@123
+
+#credentials 
+curl -i -X POST http://127.0.0.1:3100/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"Pass@123"}'
+#portal-info 
+NS=dialerv2test
+POD=$(kubectl get pod -n "$NS" -l app=dialer-freeswitch --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+kubectl logs -n "$NS" "$POD" -c dialer-aio -f | egrep "Portal agent WS connected|Portal agent WS closed|SIP REGISTER success|sipRegistered = true|presence updated"
+
+
+#sip users registration confirmation
+NS=dialerv2test
+POD=$(kubectl get pod -n $NS -l app=dialer-freeswitch -o jsonpath='{.items[0].metadata.name}')
+
+# Quick check: returns contact URI if registered
+kubectl exec -n $NS "$POD" -c freeswitch -- \
+  /usr/local/freeswitch/bin/fs_cli -H 127.0.0.1 -P 8021 -p 'FS!Secure2026' \
+  -x "sofia_contact 1001@127.0.0.1"
+
+
+# Detailed registration record
+kubectl exec -n $NS "$POD" -c freeswitch -- \
+  /usr/local/freeswitch/bin/fs_cli -H 127.0.0.1 -P 8021 -p 'FS!Secure2026' \
+  -x "sofia xmlstatus profile internal reg"
+
+# Filter only user 1001 block
+kubectl exec -n $NS "$POD" -c freeswitch -- \
+  /usr/local/freeswitch/bin/fs_cli -H 127.0.0.1 -P 8021 -p 'FS!Secure2026' \
+  -x "sofia xmlstatus profile internal reg" \
+| sed -n '/<user>1001@127.0.0.1<\/user>/,/<\/registration>/p'

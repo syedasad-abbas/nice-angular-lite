@@ -1,0 +1,21 @@
+{
+  "name": "freeswitch-dialer",
+  "version": "1.0.0",
+  "description": "FreeSWITCH ESL-based outbound dialer with voicemail detection and message drop",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --expose-gc index.js",
+    "start:dev": "node --expose-gc --watch index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "modesl": "^1.1.4",
+    "amqplib": "^0.10.4",
+    "redis": "^4.7.0",
+    "axios": "^1.7.0",
+    "libphonenumber-js": "^1.11.0",
+    "ws": "^8.18.0"
+  }
+}

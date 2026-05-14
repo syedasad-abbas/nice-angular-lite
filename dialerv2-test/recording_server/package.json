@@ -1,0 +1,16 @@
+
+{
+  "name": "jambonz-recorder",
+  "version": "1.0.0",
+  "description": "Jambonz listen recorder that uploads to DigitalOcean Spaces and stores metadata in MySQL",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.705.0",
+    "mysql2": "^3.11.3",
+    "ws": "^8.16.0"
+  }
+}
