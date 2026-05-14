@@ -1,0 +1,87 @@
+<p>user-form works!</p>
+
+<div class="card">
+    <div class="card-body">
+        <h4 class="card-title">
+            {{ isEditMode ? 'Edit User' : 'Create SIP User' }}
+        </h4>
+
+        <form (ngSubmit)="onSubmit()">
+            <div class="mb-3">
+                <label for="name" class="form-label">Name</label>
+                <input type="text" class="form-control" id="name" placeholder="Name" [(ngModel)]="name" name="name">
+            </div>
+
+            <div class="mb-3">
+                <label for="username" class="form-label">Username (lowercase)</label>
+                <input type="text" class="form-control" id="username" placeholder="Username (lowercase)"
+                    [(ngModel)]="username" name="username">
+            </div>
+
+            <div class="mb-3">
+                <label for="extension" class="form-label">Extension (e.g. 1001)</label>
+                <input type="text" class="form-control" id="extension" placeholder="Extension (e.g. 1001)"
+                    [(ngModel)]="extension" name="extension">
+            </div>
+
+            <div class="mb-3">
+                <label for="email" class="form-label">Email (optional)</label>
+                <input type="email" class="form-control" id="email" placeholder="Email (optional)" [(ngModel)]="email"
+                    name="email">
+            </div>
+
+            <div class="mb-3">
+                <label for="role" class="form-label">Role</label>
+                <select class="form-select" id="role" [(ngModel)]="role" name="role">
+                    <option value="agent">Agent</option>
+                    <option value="admin">Admin</option>
+                    <option value="user">User</option>
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="status" class="form-label">Status</label>
+                <select class="form-select" id="status" [(ngModel)]="status" name="status">
+                    <option value="enabled">Enabled</option>
+                    <option value="disabled">Disabled</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="password" class="form-label">
+                    {{ isEditMode ? 'New Password (optional)' : 'Password' }}
+                </label>
+                <input type="password" class="form-control" id="password"
+                    [placeholder]="isEditMode ? 'Leave blank to keep current password' : 'Password'"
+                    [(ngModel)]="password" name="password">
+            </div>
+
+            <div class="mb-3">
+                <label for="confirmPassword" class="form-label">
+                    {{ isEditMode ? 'Confirm New Password' : 'Confirm Password' }}
+                </label>
+                <input type="password" class="form-control" id="confirmPassword"
+                    [placeholder]="isEditMode ? 'Confirm new password' : 'Confirm Password'"
+                    [(ngModel)]="confirmPassword" name="confirmPassword">
+            </div>
+
+            <div class="mb-3">
+                <label for="sipPassword" class="form-label">SIP Password (optional)</label>
+                <input type="password" class="form-control" id="sipPassword" placeholder="SIP Password (optional)"
+                    [(ngModel)]="sipPassword" name="sipPassword">
+            </div>
+
+            <button type="submit" class="btn btn-success me-2" [disabled]="loading">
+                {{ loading ? 'Saving...' : (isEditMode ? 'Update User' : 'Create User') }}
+            </button>
+
+            <a routerLink="/users" class="btn btn-secondary text-white">Cancel</a>
+        </form>
+
+        @if (message) {
+        <div class="alert alert-info mt-3" role="alert">
+            {{ message }}
+        </div>
+        }
+    </div>
+</div>

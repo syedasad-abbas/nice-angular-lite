@@ -1,0 +1,113 @@
+.dialer-shell {
+  --dialer-bg-a: #233242;
+  --dialer-bg-b: #2b3d50;
+  --dialer-ink: #f4f8ff;
+  --dialer-card: #2a394b;
+  --dialer-border: #3a4d63;
+  --dialer-accent: #2962ff;
+  --dialer-accent-2: #3b82f6;
+  --dialer-danger: #dc2626;
+  min-height: calc(100vh - 72px);
+  background: radial-gradient(circle at top right, #364d66, transparent 42%),
+    linear-gradient(135deg, var(--dialer-bg-a), var(--dialer-bg-b) 58%);
+  padding: 1.2rem 0.5rem 2rem;
+}
+
+.dialer-card {
+  border: 1px solid var(--dialer-border);
+  border-radius: 1.25rem;
+  background: var(--dialer-card);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.card-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--dialer-ink);
+  letter-spacing: 0.02em;
+}
+
+.status-row {
+  flex-wrap: wrap;
+}
+
+.status-pill {
+  background: #314457;
+  border: 1px solid #3f5770;
+  border-radius: 999px;
+  padding: 0.55rem 0.95rem;
+  color: #d8e4f5;
+  font-weight: 600;
+}
+
+.divider {
+  border-color: #42556a;
+  opacity: 1;
+}
+
+.call-alert {
+  border-radius: 1rem;
+}
+
+.waiting-wrap {
+  color: #b7c7dd;
+}
+
+.dialpad-wrap {
+  background: linear-gradient(180deg, #2e4154, #293a4b);
+  max-width: 390px;
+  border-color: #3f5770 !important;
+}
+
+.manual-dial-wrap {
+  background: linear-gradient(180deg, #2e4154, #293a4b);
+  max-width: 520px;
+  border-color: #3f5770 !important;
+}
+
+.manual-dial-wrap .form-control {
+  background-color: #edf3ff;
+}
+
+.dialpad-title {
+  letter-spacing: 1.1px;
+}
+
+.dialpad-btn {
+  transition: transform 0.12s ease, box-shadow 0.15s ease, background-color 0.12s ease;
+}
+
+.dialpad-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(41, 98, 255, 0.28) !important;
+  background-color: #e7efff !important;
+}
+
+.dialpad-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.dialpad-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, var(--dialer-accent), #14b8a6);
+  border: none;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, var(--dialer-danger), #ef4444);
+  border: none;
+}
+
+@media (max-width: 768px) {
+  .card-title {
+    font-size: 1.65rem;
+  }
+
+  .dialer-shell {
+    padding-top: 0.6rem;
+  }
+}

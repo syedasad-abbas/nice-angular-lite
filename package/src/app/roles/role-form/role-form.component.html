@@ -1,0 +1,53 @@
+<div class="card">
+    <div class="card-body">
+        <h4 class="card-title">{{ isEditMode ? 'Edit' : 'Create' }} Role</h4>
+        <h6 class="card-subtitle mb-4 text-muted">Define a new system role and its properties</h6>
+
+        @if (message) {
+        <div class="alert alert-danger">{{ message }}</div>
+        }
+
+        <form (ngSubmit)="onSubmit()">
+            <div class="mb-3">
+                <label class="form-label">Role Name</label>
+                <input type="text" class="form-control" [(ngModel)]="name" name="name" placeholder="Enter role name" [disabled]="isEditMode && ['admin', 'agent', 'user'].includes(editRoleId || '')">
+                <div class="form-text">e.g. Supervisor, Manager, Auditor</div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" [(ngModel)]="description" name="description" rows="3" placeholder="What can this role do?"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Permissions</label>
+                <div class="border rounded p-3" style="max-height: 260px; overflow: auto;">
+                    @for (permission of permissions; track permission.id) {
+                    <div class="form-check mb-2">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            [id]="'perm-' + permission.id"
+                            [checked]="selectedPermissions.includes(permission.id)"
+                            (change)="togglePermission(permission.id, $any($event.target).checked)"
+                        >
+                        <label class="form-check-label" [for]="'perm-' + permission.id">
+                            <strong>{{ permission.name }}</strong>
+                            <span class="text-muted ms-2">{{ permission.description }}</span>
+                        </label>
+                    </div>
+                    } @empty {
+                    <div class="text-muted">No permissions found. Create permissions first.</div>
+                    }
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary me-2" [disabled]="loading">
+                    {{ loading ? 'Saving...' : 'Save Role' }}
+                </button>
+                <a routerLink="/roles" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>

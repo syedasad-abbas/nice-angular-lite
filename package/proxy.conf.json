@@ -1,0 +1,10 @@
+{
+  "/api": {
+    "target": "http://auth-api:3100",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api": ""
+    }
+  }
+}

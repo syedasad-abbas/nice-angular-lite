@@ -1,0 +1,112 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7
+    container_name: dialerv2-redis
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: dialerv2-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  freeswitch:
+    build:
+      context: ./dialerv2-test/freeswitch
+    container_name: dialerv2-freeswitch
+    ports:
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+      - "5066:5066/tcp"
+      - "8021:8021/tcp"
+      - "16384-16484:16384-16484/udp"
+    volumes:
+      - ./fs-entrypoint.sh:/opt/entrypoint.sh
+    environment:
+      - PUBLIC_IP=127.0.0.1
+      - INTERFACE_LIST_OVERRIDE=eth0
+    command: ["/bin/bash", "/opt/entrypoint.sh"]
+    depends_on:
+      - redis
+      - rabbitmq
+
+  auth-api:
+    build:
+      context: ./dialerv2-test/auth-api
+    container_name: dialerv2-auth-api
+    ports:
+      - "3100:3100"
+    environment:
+      - AUTH_API_PORT=3100
+      - REDIS_URI=redis://redis:6379
+      - JWT_SECRET=change-this-secret
+      - JWT_EXPIRES_IN=12h
+      - SIP_DOMAIN=127.0.0.1
+      - SIP_WS_URL=ws://localhost:5066
+      - SEED_ADMIN_ON_START=true
+      - SEED_ADMIN_USERNAME=admin
+      - SEED_ADMIN_PASSWORD=Pass@123
+      - SEED_ADMIN_NAME=Portal Admin
+      - SEED_ADMIN_EXTENSION=1001
+      - DIALER_INGEST_URL=http://dialer-aio:3000/v1/test-call
+      - DIALER_INGEST_API_KEY=change-this-ingest-key
+      - MANUAL_CALL_DEFAULT_PREFIX=
+      - MANUAL_CALL_DESTINATION_ADDRESS=sip:1000@127.0.0.1
+      - MANUAL_CALL_WAV_ANNOUNCE=https://example.com/announce.wav
+      - MANUAL_CALL_WAV_VM=https://example.com/vm.wav
+      - MANUAL_CALL_WAV_CONTINUE=https://example.com/continue.wav
+      - MANUAL_CALL_WAV_OPTOUT=https://example.com/optout.wav
+      - MANUAL_CALL_DIGIT_CONTINUE=1
+      - MANUAL_CALL_DIGIT_OPTOUT=2
+      - MANUAL_CALL_TIMEOUT_MS=10000
+      - MANUAL_CALL_RATE_WINDOW_SEC=60
+      - MANUAL_CALL_RATE_MAX=3
+      - MANUAL_CALL_ACTIVE_LOCK_SEC=180
+    depends_on:
+      - redis
+      - freeswitch
+
+  dialer-aio:
+    build:
+      context: ./dialerv2-test/dialer-aio
+    container_name: dialerv2-dialer-aio
+    ports:
+      - "18081:8081"
+      - "3000:3000"
+    environment:
+      - REDIS_URI=redis://redis:6379
+      - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672
+      - FREESWITCH_HOST=dialerv2-freeswitch
+      - FREESWITCH_ESL_HOST=dialerv2-freeswitch
+      - FREESWITCH_ESL_PORT=8021
+      - FREESWITCH_PASSWORD=FS!Secure2026
+      - SIP_DOMAIN=127.0.0.1
+      - TEST_CALL_API_ENABLED=true
+      - TEST_CALL_API_PATH=/v1/test-call
+      - TEST_CALL_API_KEY=change-this-ingest-key
+    depends_on:
+      - redis
+      - rabbitmq
+      - freeswitch
+
+  angular-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nice-angular-lite
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./package:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    command: npm start -- --host 0.0.0.0 --poll 2000
+    depends_on:
+      - auth-api

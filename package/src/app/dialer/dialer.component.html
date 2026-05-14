@@ -1,0 +1,106 @@
+<div class="dialer-shell row">
+  <div class="col-12 col-xl-10 mx-auto mt-4">
+    <div class="card dialer-card">
+      <div class="card-body text-center p-4 p-md-5">
+        <h2 class="card-title mb-4">Agent Dialer</h2>
+        
+        <div class="status-row d-flex justify-content-center gap-3 mb-4">
+          <span class="status-pill">
+            <i class="bi bi-diagram-3-fill me-1"></i> WS: 
+            <strong [class.text-success]="wsConnected" [class.text-danger]="!wsConnected">
+              {{ wsConnected ? 'Connected' : 'Disconnected' }}
+            </strong>
+          </span>
+          <span class="status-pill">
+            <i class="bi bi-telephone-fill me-1"></i> SIP: 
+            <strong [class.text-success]="sipRegistered" [class.text-danger]="!sipRegistered">
+              {{ sipRegistered ? 'Registered' : 'Not Registered' }}
+            </strong>
+          </span>
+        </div>
+
+        <div class="mb-4">
+          <button (click)="toggleAvailability()" class="btn py-2 px-4 rounded-pill fw-bold text-white shadow-sm" [ngClass]="available ? 'btn-danger' : 'btn-success'">
+            {{ available ? 'Go Offline' : 'Go Online (Available)' }}
+          </button>
+        </div>
+
+        <hr class="divider">
+
+        @if (callState === 'ringing') {
+          <div class="alert alert-warning py-4 my-4 animate__animated animate__pulse animate__infinite call-alert">
+            <h4 class="alert-heading mb-3"><i class="bi bi-telephone-ring me-2"></i>Incoming Call</h4>
+            <p class="fs-5 mb-4">From: <strong>{{ callerNumber || 'Unknown' }}</strong></p>
+            <div class="d-flex justify-content-center gap-3">
+              <button (click)="answerCall()" class="btn btn-success btn-lg shadow-sm px-4"><i class="bi bi-telephone-fill me-2"></i>Answer</button>
+              <button (click)="rejectCall()" class="btn btn-danger btn-lg shadow-sm px-4"><i class="bi bi-telephone-x-fill me-2"></i>Reject</button>
+            </div>
+          </div>
+        }
+
+        @if (callState === 'in-call') {
+          <div class="alert alert-info py-4 my-4 shadow-sm border-info call-alert">
+            <h4 class="alert-heading text-info-emphasis mb-3"><i class="bi bi-headset me-2"></i>In Call</h4>
+            <p class="fs-5 mb-1">From: <strong>{{ callerNumber || 'Unknown' }}</strong></p>
+            <p class="text-muted fs-6 mb-4">Duration: {{ formattedDuration }}</p>
+            
+            <button (click)="hangupCall()" class="btn btn-danger btn-lg shadow-sm px-5 mb-4 rounded-pill">
+              <i class="bi bi-telephone-x-fill me-2"></i>Hangup
+            </button>
+          </div>
+        }
+
+        @if (callState === 'idle') {
+          <div class="text-muted mt-5 mb-4 d-flex flex-column align-items-center waiting-wrap">
+            <i class="bi bi-clock-history fs-1 mb-2 opacity-50"></i>
+            <span class="fs-5">Waiting for calls...</span>
+          </div>
+        }
+
+        <div class="manual-dial-wrap p-3 p-md-4 rounded-4 shadow-sm mx-auto border mt-3">
+          <h6 class="text-center text-muted mb-3 text-uppercase fw-bold dialpad-title">Manual Dial</h6>
+          <div class="input-group">
+            <input
+              class="form-control form-control-lg"
+              type="text"
+              placeholder="+15551234567"
+              [(ngModel)]="manualNumber"
+              [disabled]="manualCallLoading"
+            />
+            <button
+              class="btn btn-success px-4 fw-bold"
+              (click)="placeManualCall()"
+              [disabled]="manualCallLoading"
+            >
+              {{ manualCallLoading ? 'Calling...' : 'Call' }}
+            </button>
+          </div>
+          @if (manualCallError) {
+            <p class="text-danger small mt-2 mb-0">{{ manualCallError }}</p>
+          }
+          @if (manualCallSuccess) {
+            <p class="text-success small mt-2 mb-0">{{ manualCallSuccess }}</p>
+          }
+        </div>
+
+        <div class="dialpad-wrap p-4 rounded-4 shadow-sm mx-auto border mt-4">
+          <h6 class="text-center text-muted mb-2 text-uppercase fw-bold dialpad-title">DTMF Dialpad</h6>
+          <p class="text-center small mb-3" [class.text-success]="callState === 'in-call'" [class.text-muted]="callState !== 'in-call'">
+            {{ callState === 'in-call' ? 'Press keys to send DTMF' : 'Available during active call' }}
+          </p>
+          <div class="row g-2 text-center">
+            @for (digit of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']; track digit) {
+              <div class="col-4">
+                <button class="btn btn-light w-100 fs-4 fw-bold py-3 border shadow-sm rounded-3 dialpad-btn"
+                        [disabled]="callState !== 'in-call'"
+                        (click)="sendDTMF(digit)">
+                  {{ digit }}
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
